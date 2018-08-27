@@ -75,7 +75,7 @@ NXP_CHIP_TYPE := PN547C2
 NXP_CHIP_FW_TYPE := PN547C2
 
 # SELinux
-BOARD_SEPOLICY_DIRS += $(PLATFORM_COMMON_PATH)/sepolicy_platform
+# BOARD_SEPOLICY_DIRS += $(PLATFORM_COMMON_PATH)/sepolicy_platform
 
 # FPC version select
 TARGET_FPC_VERSION := N
@@ -85,5 +85,8 @@ TARGET_LEGACY_KEYMASTER := true
 
 # Platform witout a vendor partition
 TARGET_COPY_OUT_VENDOR := system/vendor
+
+# Let other components rely on the kernel build tree
+TARGET_COMPILE_WITH_MSM_KERNEL := true
 
 include device/sony/common/CommonConfig.mk
