@@ -76,6 +76,7 @@ NXP_CHIP_FW_TYPE := PN547C2
 
 # SELinux
 # BOARD_SEPOLICY_DIRS += $(PLATFORM_COMMON_PATH)/sepolicy_platform
+BOARD_USE_ENFORCING_SELINUX := false
 
 # FPC version select
 TARGET_FPC_VERSION := N
@@ -88,5 +89,8 @@ TARGET_COPY_OUT_VENDOR := system/vendor
 
 # Let other components rely on the kernel build tree
 TARGET_COMPILE_WITH_MSM_KERNEL := true
+
+# Force use of non-CAF HAL modules
+BOARD_USES_QCOM_HARDWARE := false
 
 include device/sony/common/CommonConfig.mk
