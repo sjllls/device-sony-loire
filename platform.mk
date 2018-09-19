@@ -19,6 +19,11 @@ $(call inherit-product, device/sony/common/common.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
 $(call inherit-product, hardware/broadcom/wlan/bcmdhd/config/config-bcm.mk)
 
+$(call inherit-product, vendor/qcom/opensource/cryptfs_hw/Android.mk)
+$(call inherit-product, vendor/qcom/opensource/dataservices/rmnetctl/Android.mk)
+$(call inherit-product, vendor/qcom/opensource/fm/Android.mk)
+$(call inherit-product, vendor/qcom/opensource/location/loc_api/Android.mk)
+
 SOMC_PLATFORM := loire
 
 SONY_ROOT := $(PLATFORM_COMMON_PATH)/rootdir
@@ -60,6 +65,17 @@ PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.vulkan.level-0.xml:system/etc/permissions/android.hardware.vulkan.level.xml \
     frameworks/native/data/etc/android.hardware.vulkan.version-1_0_3.xml:system/etc/permissions/android.hardware.vulkan.version.xml \
     frameworks/native/data/etc/android.hardware.sensor.barometer.xml:system/etc/permissions/android.hardware.sensor.barometer.xml
+
+
+# QCOM netmgrd support
+PRODUCT_PACKAGES += \
+    librmnetctl \
+    rmnetctl
+
+PRODUCT_COPY_FILES += \
+    out/target/product/suzu/symbols/system/vendor/lib/librmnetctl.so:system/vendor/lib/librmnetctl.so \
+    out/target/product/suzu/symbols/system/vendor/lib64/librmnetctl.so:system/vendor/lib64/librmnetctl.so
+
 
 # Platform power configuration
 PRODUCT_PACKAGES += \
