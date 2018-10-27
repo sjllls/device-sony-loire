@@ -53,6 +53,12 @@ service fingerprintd /system/bin/fingerprintd
     group input
     writepid /dev/cpuset/system-background/tasks
 
+# Miniaudioflinger service
+service miniafservice /system/bin/miniafservice
+    class core
+    user system
+    group system audio
+
 on property:bluetooth.isEnabled=true
     write /sys/class/bluetooth/hci0/idle_timeout 7000
 
