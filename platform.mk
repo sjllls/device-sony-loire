@@ -74,6 +74,11 @@ PRODUCT_PACKAGES += \
 # Audio
 PRODUCT_PACKAGES += \
     audio.primary.msm8952
+    
+# Power
+PRODUCT_PACKAGES += \
+	android.hardware.power@1.1-service-qti \
+	android.hardware.power@1.1
 
 # GFX
 PRODUCT_PACKAGES += \
