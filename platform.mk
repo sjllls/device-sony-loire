@@ -189,3 +189,7 @@ $(call inherit-product, build/target/product/verity.mk)
 # Include vndk
 PRODUCT_PACKAGES += \
     vndk_package
+
+# HAL3
+PRODUCT_PROPERTY_OVERRIDES += \
+    persist.camera.HAL3.enabled=1
