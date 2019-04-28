@@ -74,7 +74,16 @@ TARGET_USES_GRALLOC1 := true
 # Cache partititon
 BOARD_CACHEIMAGE_FILE_SYSTEM_TYPE := ext4
 
-# Platform witout a vendor partition
-TARGET_COPY_OUT_VENDOR := system/vendor
+# Treble
+BOARD_VNDK_VERSION := current
+
+# Build a separate vendor.img
+TARGET_COPY_OUT_VENDOR := vendor
+BOARD_VENDORIMAGE_PARTITION_SIZE := 295649280
+BOARD_VENDORIMAGE_FILE_SYSTEM_TYPE := ext4
+BOARD_VENDORIMAGE_JOURNAL_SIZE := 0
+BOARD_VENDORIMAGE_EXTFS_INODE_COUNT := 4096
+
+BOARD_PROPERTY_OVERRIDES_SPLIT_ENABLED := true
 
 include device/sony/common/CommonConfig.mk
