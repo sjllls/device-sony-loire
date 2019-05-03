@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 The Android Open Source Project
+ * Copyright (C) 2017-2018 The LineageOS Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -28,103 +30,443 @@
  */
 
 #define LOG_NIDEBUG 0
-#define LOG_TAG "RQBalance-PowerHAL-PowerHelper"
 
 #include <errno.h>
-#include <inttypes.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <dlfcn.h>
+#include <inttypes.h>
 #include <stdlib.h>
+#include <unistd.h>
 
+#define LOG_TAG "QCOM PowerHAL"
 #include <log/log.h>
+#include <hardware/power.h>
 
+#include "utils.h"
+#include "metadata-defs.h"
+#include "hint-data.h"
+#include "performance.h"
+#include "power-common.h"
+#include "power-feature.h"
 #include "power-helper.h"
+
+#define USINSEC 1000000L
+#define NSINUS 1000L
+
+#ifndef RPM_STAT
+#define RPM_STAT "/d/rpm_stats"
+#endif
+
+#ifndef RPM_MASTER_STAT
+#define RPM_MASTER_STAT "/d/rpm_master_stats"
+#endif
 
 #ifndef RPM_SYSTEM_STAT
 #define RPM_SYSTEM_STAT "/d/system_stats"
 #endif
 
-#ifndef RPMH_MASTER_STATS_FILE
-#define RPMH_MASTER_STATS_FILE "/sys/power/rpmh_stats/master_stats"
-#endif
+/*
+   Set with TARGET_WLAN_POWER_STAT in BoardConfig.mk
+   Defaults to QCACLD3 path
+   Path for QCACLD3: /d/wlan0/power_stats
+   Path for QCACLD2 and Prima: /d/wlan_wcnss/power_stats
+ */
 
-#ifndef SYSTEM_STATS_FILE
-#define SYSTEM_STATS_FILE "/sys/power/system_sleep/stats"
+#ifndef NO_WLAN_STATS
+#ifndef WLAN_POWER_STAT
+#define WLAN_POWER_STAT "/d/wlan0/power_stats"
 #endif
-
-#ifndef WLAN_STATS_FILE
-#define WLAN_STATS_FILE "/d/wlan0/power_stats"
 #endif
 
 #define LINE_SIZE 128
 
-/* RPM */
-const char *rpm_master_stat_params[RPM_MASTER_STATS_COUNT] = {
+#ifdef LEGACY_STATS
+/* Use these stats on pre-nougat qualcomm kernels */
+static const char *rpm_param_names[] = {
+    "vlow_count",
+    "accumulated_vlow_time",
+    "vmin_count",
+    "accumulated_vmin_time"
+};
+
+static const char *rpm_master_param_names[] = {
+    "xo_accumulated_duration",
+    "xo_count",
+    "xo_accumulated_duration",
+    "xo_count",
+    "xo_accumulated_duration",
+    "xo_count",
+    "xo_accumulated_duration",
+    "xo_count"
+};
+
+#ifndef NO_WLAN_STATS
+static const char *wlan_param_names[] = {
+    "cumulative_sleep_time_ms",
+    "cumulative_total_on_time_ms",
+    "deep_sleep_enter_counter",
+    "last_deep_sleep_enter_tstamp_ms"
+};
+#endif
+#else
+/* Use these stats on nougat kernels and forward */
+const char *rpm_stat_params[MAX_RPM_PARAMS] = {
+    "count",
+    "actual last sleep(msec)",
+};
+
+const char *master_stat_params[MAX_RPM_PARAMS] = {
     "Accumulated XO duration",
     "XO Count",
 };
-struct stats_section rpm_master_sections[] = {
-    { RPM_VOTER_APSS, "APSS",   rpm_master_stat_params, ARRAY_SIZE(rpm_master_stat_params) },
-    { RPM_VOTER_MPSS, "MPSS",   rpm_master_stat_params, ARRAY_SIZE(rpm_master_stat_params) },
-    { RPM_VOTER_ADSP, "ADSP",   rpm_master_stat_params, ARRAY_SIZE(rpm_master_stat_params) },
-    { RPM_VOTER_SLPI, "SLPI",   rpm_master_stat_params, ARRAY_SIZE(rpm_master_stat_params) },
+
+struct stat_pair rpm_stat_map[] = {
+    { RPM_MODE_XO,   "RPM Mode:vlow", rpm_stat_params, ARRAY_SIZE(rpm_stat_params) },
+    { RPM_MODE_VMIN, "RPM Mode:vmin", rpm_stat_params, ARRAY_SIZE(rpm_stat_params) },
+    { VOTER_APSS,    "APSS",    master_stat_params, ARRAY_SIZE(master_stat_params) },
+    { VOTER_MPSS,    "MPSS",    master_stat_params, ARRAY_SIZE(master_stat_params) },
+    { VOTER_ADSP,    "ADSP",    master_stat_params, ARRAY_SIZE(master_stat_params) },
+    { VOTER_SLPI,    "SLPI",    master_stat_params, ARRAY_SIZE(master_stat_params) },
+    { VOTER_PRONTO,  "PRONTO",  master_stat_params, ARRAY_SIZE(master_stat_params) },
+    { VOTER_TZ,      "TZ",      master_stat_params, ARRAY_SIZE(master_stat_params) },
+    { VOTER_LPASS,   "LPASS",   master_stat_params, ARRAY_SIZE(master_stat_params) },
+    { VOTER_SPSS,    "SPSS",    master_stat_params, ARRAY_SIZE(master_stat_params) },
 };
+#endif
 
-
-/* RPMh */
-const char *master_stats_labels[MASTER_STATS_COUNT] = {
-    "Sleep Accumulated Duration",
-    "Sleep Count",
-    "Sleep Last Entered At",
-};
-
-struct stats_section master_sections[MASTER_COUNT] = {
-    { MASTER_APSS,       "APSS", master_stats_labels, ARRAY_SIZE(master_stats_labels) },
-    { MASTER_MPSS,       "MPSS", master_stats_labels, ARRAY_SIZE(master_stats_labels) },
-    { MASTER_ADSP,       "ADSP", master_stats_labels, ARRAY_SIZE(master_stats_labels) },
-    { MASTER_SLPI,       "SLPI", master_stats_labels, ARRAY_SIZE(master_stats_labels) },
-    { MASTER_CDSP,       "CDSP", master_stats_labels, ARRAY_SIZE(master_stats_labels) },
-    // The following masters are currently unused
-    //{ MASTER_GPU,         "GPU", master_stats_labels, ARRAY_SIZE(master_stats_labels) },
-    //{ MASTER_DISPLAY, "DISPLAY", master_stats_labels, ARRAY_SIZE(master_stats_labels) },
-};
-
-const char *wlan_stats_labels[WLAN_STATS_COUNT] = {
+#ifndef NO_WLAN_STATS
+const char *wlan_power_stat_params[] = {
     "cumulative_sleep_time_ms",
     "cumulative_total_on_time_ms",
     "deep_sleep_enter_counter",
     "last_deep_sleep_enter_tstamp_ms"
 };
 
-struct stats_section wlan_sections[] = {
-    { SUBSYSTEM_WLAN, "POWER DEBUG STATS", wlan_stats_labels, ARRAY_SIZE(wlan_stats_labels) },
+struct stat_pair wlan_stat_map[] = {
+    { WLAN_POWER_DEBUG_STATS, "POWER DEBUG STATS", wlan_power_stat_params, ARRAY_SIZE(wlan_power_stat_params) },
 };
+#endif
 
-/* Common */
-const char *system_stats_labels[SYSTEM_STATE_STATS_COUNT] = {
-    "count",
-    "actual last sleep(msec)"
-};
+static int display_hint_sent;
 
-struct stats_section rpm_system_sections[] = {
-    { SYSTEM_STATES, "RPM Mode:vlow", system_stats_labels, ARRAY_SIZE(system_stats_labels) },
-    { SYSTEM_STATES, "RPM Mode:vmin", system_stats_labels, ARRAY_SIZE(system_stats_labels) },
-};
+void power_init(void)
+{
+    ALOGI("QCOM power HAL initing.");
+}
 
-struct stats_section rpmh_system_sections[] = {
-    { SYSTEM_STATES, "RPM Mode:aosd", system_stats_labels, ARRAY_SIZE(system_stats_labels) },
-    { SYSTEM_STATES, "RPM Mode:cxsd", system_stats_labels, ARRAY_SIZE(system_stats_labels) },
-};
+static void process_video_decode_hint(void *metadata)
+{
+    char governor[80];
+    struct video_decode_metadata_t video_decode_metadata;
 
-static int parse_stats(const char **stat_labels, size_t num_stats,
-        uint64_t *list, FILE *fp) {
+    if (get_scaling_governor(governor, sizeof(governor)) == -1) {
+        ALOGE("Can't obtain scaling governor.");
+
+        return;
+    }
+
+    if (metadata) {
+        ALOGI("Processing video decode hint. Metadata: %s", (char *)metadata);
+    }
+
+    /* Initialize encode metadata struct fields. */
+    memset(&video_decode_metadata, 0, sizeof(struct video_decode_metadata_t));
+    video_decode_metadata.state = -1;
+    video_decode_metadata.hint_id = DEFAULT_VIDEO_DECODE_HINT_ID;
+
+    if (metadata) {
+        if (parse_video_decode_metadata((char *)metadata, &video_decode_metadata) ==
+            -1) {
+            ALOGE("Error occurred while parsing metadata.");
+            return;
+        }
+    } else {
+        return;
+    }
+
+    if (video_decode_metadata.state == 1) {
+        if (is_ondemand_governor(governor)) {
+            int resource_values[] = {THREAD_MIGRATION_SYNC_OFF};
+
+            perform_hint_action(video_decode_metadata.hint_id,
+                    resource_values, ARRAY_SIZE(resource_values));
+        } else if (is_interactive_governor(governor)) {
+            int resource_values[] = {TR_MS_30, HISPEED_LOAD_90, HS_FREQ_1026, THREAD_MIGRATION_SYNC_OFF};
+
+            perform_hint_action(video_decode_metadata.hint_id,
+                    resource_values, ARRAY_SIZE(resource_values));
+        }
+    } else if (video_decode_metadata.state == 0) {
+        if (is_ondemand_governor(governor)) {
+            undo_hint_action(video_decode_metadata.hint_id);
+        } else if (is_interactive_governor(governor)) {
+            undo_hint_action(video_decode_metadata.hint_id);
+        }
+    }
+}
+
+static void process_video_encode_hint(void *metadata)
+{
+    char governor[80];
+    struct video_encode_metadata_t video_encode_metadata;
+
+    if (get_scaling_governor(governor, sizeof(governor)) == -1) {
+        ALOGE("Can't obtain scaling governor.");
+
+        return;
+    }
+
+    /* Initialize encode metadata struct fields. */
+    memset(&video_encode_metadata, 0, sizeof(struct video_encode_metadata_t));
+    video_encode_metadata.state = -1;
+    video_encode_metadata.hint_id = DEFAULT_VIDEO_ENCODE_HINT_ID;
+
+    if (metadata) {
+        if (parse_video_encode_metadata((char *)metadata, &video_encode_metadata) ==
+            -1) {
+            ALOGE("Error occurred while parsing metadata.");
+            return;
+        }
+    } else {
+        return;
+    }
+
+    if (video_encode_metadata.state == 1) {
+        if (is_ondemand_governor(governor)) {
+            int resource_values[] = {IO_BUSY_OFF, SAMPLING_DOWN_FACTOR_1, THREAD_MIGRATION_SYNC_OFF};
+
+            perform_hint_action(video_encode_metadata.hint_id,
+                    resource_values, ARRAY_SIZE(resource_values));
+        } else if (is_interactive_governor(governor)) {
+            int resource_values[] = {TR_MS_30, HISPEED_LOAD_90, HS_FREQ_1026, THREAD_MIGRATION_SYNC_OFF,
+                INTERACTIVE_IO_BUSY_OFF};
+
+            perform_hint_action(video_encode_metadata.hint_id,
+                    resource_values, ARRAY_SIZE(resource_values));
+        }
+    } else if (video_encode_metadata.state == 0) {
+        if (is_ondemand_governor(governor)) {
+            undo_hint_action(video_encode_metadata.hint_id);
+        } else if (is_interactive_governor(governor)) {
+            undo_hint_action(video_encode_metadata.hint_id);
+        }
+    }
+}
+
+int __attribute__ ((weak)) power_hint_override(power_hint_t UNUSED(hint),
+                                               void *UNUSED(data))
+{
+    return HINT_NONE;
+}
+
+void power_hint(power_hint_t hint, void *data)
+{
+    /* Check if this hint has been overridden. */
+    if (power_hint_override(hint, data) == HINT_HANDLED) {
+        /* The power_hint has been handled. We can skip the rest. */
+        return;
+    }
+
+    switch(hint) {
+        case POWER_HINT_SUSTAINED_PERFORMANCE:
+            ALOGI("Sustained perf power hint not handled in power_hint_override");
+        break;
+        case POWER_HINT_VR_MODE:
+            ALOGI("VR mode power hint not handled in power_hint_override");
+        break;
+        case POWER_HINT_VIDEO_ENCODE:
+            process_video_encode_hint(data);
+        break;
+        case POWER_HINT_VIDEO_DECODE:
+            process_video_decode_hint(data);
+        break;
+        case POWER_HINT_SET_PROFILE:
+            ALOGI("set profile power hint not handled in power_hint_override");
+        break;
+        default:
+        break;
+    }
+}
+
+int get_number_of_profiles()
+{
+    return 0;
+}
+
+int __attribute__ ((weak)) set_interactive_override(int UNUSED(on))
+{
+    return HINT_NONE;
+}
+
+#ifdef SET_INTERACTIVE_EXT
+extern void power_set_interactive_ext(int on);
+#endif
+
+void power_set_interactive(int on)
+{
+    char governor[80];
+
+    if (!on) {
+        /* Send Display OFF hint to perf HAL */
+        perf_hint_enable(VENDOR_HINT_DISPLAY_OFF, 0);
+    } else {
+        /* Send Display ON hint to perf HAL */
+        perf_hint_enable(VENDOR_HINT_DISPLAY_ON, 0);
+    }
+
+    /**
+     * Ignore consecutive display-off hints
+     * Consecutive display-on hints are already handled
+     */
+    if (display_hint_sent && !on)
+        return;
+
+    display_hint_sent = !on;
+
+#ifdef SET_INTERACTIVE_EXT
+    power_set_interactive_ext(on);
+#endif
+
+    if (set_interactive_override(on) == HINT_HANDLED) {
+        return;
+    }
+
+    ALOGI("Got set_interactive hint");
+
+    if (get_scaling_governor(governor, sizeof(governor)) == -1) {
+        ALOGE("Can't obtain scaling governor.");
+
+        return;
+    }
+
+    if (!on) {
+        /* Display off. */
+        if (is_ondemand_governor(governor)) {
+            int resource_values[] = { MS_500, THREAD_MIGRATION_SYNC_OFF };
+
+            perform_hint_action(DISPLAY_STATE_HINT_ID,
+                    resource_values, ARRAY_SIZE(resource_values));
+        } else if (is_interactive_governor(governor)) {
+            int resource_values[] = {TR_MS_50, THREAD_MIGRATION_SYNC_OFF};
+
+            perform_hint_action(DISPLAY_STATE_HINT_ID,
+                    resource_values, ARRAY_SIZE(resource_values));
+        }
+    } else {
+        /* Display on. */
+        if (is_ondemand_governor(governor)) {
+            undo_hint_action(DISPLAY_STATE_HINT_ID);
+        } else if (is_interactive_governor(governor)) {
+            undo_hint_action(DISPLAY_STATE_HINT_ID);
+        }
+    }
+}
+
+void __attribute__((weak)) set_device_specific_feature(feature_t UNUSED(feature), int UNUSED(state))
+{
+}
+
+void set_feature(feature_t feature, int state)
+{
+    switch (feature) {
+#ifdef TAP_TO_WAKE_NODE
+        case POWER_FEATURE_DOUBLE_TAP_TO_WAKE:
+            sysfs_write(TAP_TO_WAKE_NODE, state ? "1" : "0");
+            break;
+#endif
+        default:
+            break;
+    }
+    set_device_specific_feature(feature, state);
+}
+
+#ifdef LEGACY_STATS
+static int extract_stats(uint64_t *list, char *file, const char**param_names,
+                         unsigned int num_parameters, int isHex) {
+    FILE *fp;
+    ssize_t read;
+    size_t len;
+    size_t index = 0;
+    char *line;
+    int ret;
+
+    fp = fopen(file, "r");
+    if (fp == NULL) {
+        ret = -errno;
+        ALOGE("%s: failed to open: %s Error = %s", __func__, file, strerror(errno));
+        return ret;
+    }
+
+    for (line = NULL, len = 0;
+         ((read = getline(&line, &len, fp) != -1) && (index < num_parameters));
+         free(line), line = NULL, len = 0) {
+        uint64_t value;
+        char* offset;
+
+        size_t begin = strspn(line, " \t");
+        if (strncmp(line + begin, param_names[index], strlen(param_names[index]))) {
+            continue;
+        }
+
+        offset = memchr(line, ':', len);
+        if (!offset) {
+            continue;
+        }
+
+        if (isHex) {
+            sscanf(offset, ":%" SCNx64, &value);
+        } else {
+            sscanf(offset, ":%" SCNu64, &value);
+        }
+        list[index] = value;
+        index++;
+    }
+
+    free(line);
+    fclose(fp);
+
+    return 0;
+}
+
+int extract_platform_stats(uint64_t *list) {
+    int ret;
+    //Data is located in two files
+    ret = extract_stats(list, RPM_STAT, rpm_param_names, RPM_PARAM_COUNT, false);
+    if (ret) {
+        for (size_t i=0; i < RPM_PARAM_COUNT; i++)
+            list[i] = 0;
+    }
+    ret = extract_stats(list + RPM_PARAM_COUNT, RPM_MASTER_STAT,
+                        rpm_master_param_names, PLATFORM_PARAM_COUNT - RPM_PARAM_COUNT, true);
+    if (ret) {
+        for (size_t i=RPM_PARAM_COUNT; i < PLATFORM_PARAM_COUNT; i++)
+        list[i] = 0;
+    }
+    return 0;
+}
+
+#ifndef NO_WLAN_STATS
+int extract_wlan_stats(uint64_t *list) {
+    int ret;
+    ret = extract_stats(list, WLAN_POWER_STAT, wlan_param_names, WLAN_POWER_PARAMS_COUNT, false);
+    if (ret) {
+        for (size_t i=0; i < WLAN_POWER_PARAMS_COUNT; i++)
+            list[i] = 0;
+    }
+    return 0;
+}
+#endif
+#else
+
+static int parse_stats(const char **params, size_t params_size,
+                       uint64_t *list, FILE *fp) {
     ssize_t nread;
     size_t len = LINE_SIZE;
     char *line;
-    size_t stats_read = 0;
+    size_t params_read = 0;
     size_t i;
 
     line = malloc(len);
@@ -133,7 +475,7 @@ static int parse_stats(const char **stat_labels, size_t num_stats,
         return -ENOMEM;
     }
 
-    while ((stats_read < num_stats) &&
+    while ((params_read < params_size) &&
         (nread = getline(&line, &len, fp) > 0)) {
         char *key = line + strspn(line, " \t");
         char *value = strchr(key, ':');
@@ -141,29 +483,26 @@ static int parse_stats(const char **stat_labels, size_t num_stats,
             continue;
         *value++ = '\0';
 
-        for (i = 0; i < num_stats; i++) {
-            if (!strncmp(key, stat_labels[i], strlen(stat_labels[i]))) {
+        for (i = 0; i < params_size; i++) {
+            if (!strcmp(key, params[i])) {
                 list[i] = strtoull(value, NULL, 0);
-                stats_read++;
+                params_read++;
                 break;
             }
         }
     }
-
     free(line);
 
-    return stats_read;
+    return 0;
 }
 
-static int extract_stats(uint64_t *stats_list, size_t entries_per_section, char *file,
-        struct stats_section *sections, size_t num_sections) {
+static int extract_stats(uint64_t *list, char *file,
+                         struct stat_pair *map, size_t map_size) {
     FILE *fp;
     ssize_t read;
     size_t len = LINE_SIZE;
     char *line;
-    size_t i;
-    size_t sections_read = 0;
-    size_t stats_read = 0;
+    size_t i, stats_read = 0;
     int ret = 0;
 
     fp = fopen(file, "re");
@@ -179,114 +518,37 @@ static int extract_stats(uint64_t *stats_list, size_t entries_per_section, char 
         return -ENOMEM;
     }
 
-    // Ensure that any missing stats default to 0
-    for (i = 0; i < (entries_per_section * num_sections); i++) {
-        stats_list[i] = 0L;
-    }
-
-    // Iterate over the sections we expect to find in the file, calling parse_stats()
-    // to process each section as we detect section headers
-    while ((sections_read < num_sections) && (read = getline(&line, &len, fp) != -1)) {
+    while ((stats_read < map_size) && (read = getline(&line, &len, fp) != -1)) {
         size_t begin = strspn(line, " \t");
 
-        for (i = 0; i < num_sections; i++) {
-            if (!strncmp(line + begin, sections[i].label, strlen(sections[i].label))) {
-                sections_read++;
+        for (i = 0; i < map_size; i++) {
+            if (!strncmp(line + begin, map[i].label, strlen(map[i].label))) {
+                stats_read++;
                 break;
             }
         }
 
-        if (i == num_sections) {
+        if (i == map_size)
             continue;
-        }
 
-        stats_read = parse_stats(sections[i].stats_labels, sections[i].num_stats,
-                &stats_list[i * entries_per_section], fp);
-        // If we don't find all of the stats we expect in this section, our understanding of
-        // the input is wrong, and we can't just carry on as if everything is okay.  Better
-        // to log the error and give up than potentially return incorrect data as stats.
-        if (stats_read != sections[i].num_stats) {
-            ALOGE("%s: failed to read all stats for %s section (%zu of %zu)", __func__,
-                    sections[i].label, stats_read, sections[i].num_stats);
+        ret = parse_stats(map[i].parameters, map[i].num_parameters,
+                          &list[map[i].stat * MAX_RPM_PARAMS], fp);
+        if (ret < 0)
             break;
-        }
     }
-
     free(line);
     fclose(fp);
 
     return ret;
 }
 
-int extract_rpm_master_stats(uint64_t *list, size_t list_length)
-{
-    size_t entries_per_section = list_length / ARRAY_SIZE(rpm_master_sections);
-    if (list_length % entries_per_section != 0) {
-        ALOGW("%s: stats list size not an even multiple of section count", __func__);
-    }
-
-    return extract_stats(list, entries_per_section, RPM_SYSTEM_STAT,
-            rpm_master_sections, ARRAY_SIZE(rpm_master_sections));
+int extract_platform_stats(uint64_t *list) {
+    return extract_stats(list, RPM_SYSTEM_STAT, rpm_stat_map, ARRAY_SIZE(rpm_stat_map));
 }
 
-int extract_rpmh_master_stats(uint64_t *list, size_t list_length)
-{
-    size_t entries_per_section = list_length / ARRAY_SIZE(master_sections);
-    if (list_length % entries_per_section != 0) {
-        ALOGW("%s: stats list size not an even multiple of section count", __func__);
-    }
-
-    return extract_stats(list, entries_per_section, RPMH_MASTER_STATS_FILE,
-            master_sections, ARRAY_SIZE(master_sections));
+#ifndef NO_WLAN_STATS
+int extract_wlan_stats(uint64_t *list) {
+    return extract_stats(list, WLAN_POWER_STAT, wlan_stat_map, ARRAY_SIZE(wlan_stat_map));
 }
-
-int extract_wlan_stats(uint64_t *list, size_t list_length)
-{
-    size_t entries_per_section = list_length / ARRAY_SIZE(wlan_sections);
-    if (list_length % entries_per_section != 0) {
-        ALOGW("%s: stats list size not an even multiple of section count", __func__);
-    }
-
-    return extract_stats(list, entries_per_section, WLAN_STATS_FILE,
-            wlan_sections, ARRAY_SIZE(wlan_sections));
-}
-
-int extract_rpm_system_stats(uint64_t *list, size_t list_length)
-{
-    size_t entries_per_section = list_length / ARRAY_SIZE(rpm_system_sections);
-    if (list_length % entries_per_section != 0) {
-        ALOGW("%s: stats list size not an even multiple of section count", __func__);
-    }
-
-    return extract_stats(list, entries_per_section, SYSTEM_STATS_FILE,
-            rpm_system_sections, ARRAY_SIZE(rpm_system_sections));
-}
-
-int extract_rpmh_system_stats(uint64_t *list, size_t list_length)
-{
-    size_t entries_per_section = list_length / ARRAY_SIZE(rpmh_system_sections);
-    if (list_length % entries_per_section != 0) {
-        ALOGW("%s: stats list size not an even multiple of section count", __func__);
-    }
-
-    return extract_stats(list, entries_per_section, SYSTEM_STATS_FILE,
-            rpmh_system_sections, ARRAY_SIZE(rpmh_system_sections));
-}
-
-bool power_helper_is_legacy(void)
-{
-    FILE *fp;
-
-    /*
-     * If the RPMh master stats file exists, we are indeed using a
-     * SoC with the RPMh. Otherwise, we're on legacy platforms.
-     */
-    fp = fopen(RPMH_MASTER_STATS_FILE, "re");
-    if (fp != NULL) {
-        fclose(fp);
-        return false;
-    }
-
-    return true;
-}
-
+#endif
+#endif

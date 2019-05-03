@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017-2018 The LineageOS Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -34,133 +35,107 @@
 extern "C" {
 #endif
 
-enum legacy_stats_source {
-    RPM_VOTER_APSS = 0,
-    RPM_VOTER_MPSS,
-    RPM_VOTER_ADSP,
-    RPM_VOTER_SLPI,
-    RPM_MAX_VOTER_STATS,
+#include "hardware/power.h"
 
+#ifdef LEGACY_STATS
+enum platform_param_id {
+    VLOW_COUNT = 0,
+    ACCUMULATED_VLOW_TIME,
+    VMIN_COUNT,
+    ACCUMULATED_VMIN_TIME,
+    RPM_PARAM_COUNT,
+
+    XO_ACCUMULATED_DURATION_APSS = RPM_PARAM_COUNT,
+    XO_COUNT_APSS,
+    XO_ACCUMULATED_DURATION_MPSS,
+    XO_COUNT_MPSS,
+    XO_ACCUMULATED_DURATION_ADSP,
+    XO_COUNT_ADSP,
+    XO_ACCUMULATED_DURATION_SLPI,
+    XO_COUNT_SLPI,
+
+    //Don't add any lines after that line
+    PLATFORM_PARAM_COUNT
+};
+#endif
+
+enum stats_type {
+    //Platform Stats
+    RPM_MODE_XO = 0,
+    RPM_MODE_VMIN,
+    RPM_MODE_MAX,
+    XO_VOTERS_START = RPM_MODE_MAX,
+    VOTER_APSS = XO_VOTERS_START,
+    VOTER_MPSS,
+    VOTER_ADSP,
+    VOTER_SLPI,
+    VOTER_PRONTO,
+    VOTER_TZ,
+    VOTER_LPASS,
+    VOTER_SPSS,
+    MAX_PLATFORM_STATS,
+
+#ifndef NO_WLAN_STATS
     //WLAN Stats
     WLAN_POWER_DEBUG_STATS = 0,
     MAX_WLAN_STATS,
+#endif
 };
 
+#ifndef NO_WLAN_STATS
+enum subsystem_type {
+    SUBSYSTEM_WLAN = 0,
 
-// These values are used as indices in getSubsystemLowPowerStats(), as source IDs
-// in stats_section instances, and (in the case of the _COUNT values) to dimension
-// containers.  The values used as indices need to be contiguous, but others do
-// not (which is why SYSTEM_STATES is all the way at the end; it is not used as
-// an index, but only as a source ID).
-enum stats_source {
-    // Master stats
-    MASTER_APSS = 0,
-    MASTER_MPSS,
-    MASTER_ADSP,
-    MASTER_SLPI,
-    MASTER_CDSP,  // Not technically used, but included for precautionary stats tracking
-    // The following masters are supported by the RPMh stats driver, but not
-    // in use on our devices.
-    // MASTER_GPU,
-    // MASTER_DISPLAY,
-    MASTER_COUNT, // Total master sources
-
-    // Subsystem stats.  (Numbering starts at MASTER_COUNT to preserve
-    // contiguous source numbering.)
-    SUBSYSTEM_WLAN = MASTER_COUNT,
-
-    // Don't add any lines after this line
-    STATS_SOURCE_COUNT, // Total sources of any kind excluding system states
-    SUBSYSTEM_COUNT = STATS_SOURCE_COUNT - MASTER_COUNT,
-
-    SYSTEM_STATES
-};
-
-enum master_sleep_states {
-    MASTER_SLEEP = 0,
-
-    // Don't add any lines after this line
-    MASTER_SLEEP_STATE_COUNT
-};
-
-enum legacy_master_stats {
-    SLEEP_XO_DURATION = 0,
-    SLEEP_XO_COUNT,
-
-    // Don't add any lines after this line
-    RPM_MASTER_STATS_COUNT
-};
-
-enum master_stats {
-    SLEEP_CUMULATIVE_DURATION_MS = 0,
-    SLEEP_ENTER_COUNT,
-    SLEEP_LAST_ENTER_TSTAMP_MS,
-
-    // Don't add any lines after this line
-    MASTER_STATS_COUNT
+    //Don't add any lines after this line
+    SUBSYSTEM_COUNT
 };
 
 enum wlan_sleep_states {
     WLAN_STATE_ACTIVE = 0,
     WLAN_STATE_DEEP_SLEEP,
 
-    // Don't add any lines after this line
-    WLAN_SLEEP_STATE_COUNT
+    //Don't add any lines after this line
+    WLAN_STATES_COUNT
 };
 
-// Note that stats for both WLAN sleep states are in a single section of the
-// source file, so there's only 1 stats section despite having 2 states
-enum wlan_stats {
+enum wlan_power_params {
     CUMULATIVE_SLEEP_TIME_MS = 0,
     CUMULATIVE_TOTAL_ON_TIME_MS,
     DEEP_SLEEP_ENTER_COUNTER,
     LAST_DEEP_SLEEP_ENTER_TSTAMP_MS,
 
-    // Don't add any lines after this line
-    WLAN_STATS_COUNT
-};
-
-enum system_sleep_states {
-    SYSTEM_STATE_AOSD = 0,
-    SYSTEM_STATE_CXSD,
-
     //Don't add any lines after this line
-    SYSTEM_SLEEP_STATE_COUNT
+    WLAN_POWER_PARAMS_COUNT
 };
-
-enum legacy_system_sleep_states {
-    SYSTEM_STATE_VLOW = 0,
-    SYSTEM_STATE_VMIN,
-
-    //Don't add any lines after this line
-    RPM_SYSTEM_SLEEP_STATE_COUNT
-};
-
-enum system_state_stats {
-    TOTAL_COUNT = 0,
-    ACCUMULATED_TIME_MS,
-
-    //Don't add any lines after this line
-    SYSTEM_STATE_STATS_COUNT
-};
-
-#ifndef ARRAY_SIZE
-#define ARRAY_SIZE(x) (sizeof((x))/sizeof((x)[0]))
 #endif
 
-struct stats_section {
-    int source;
+#define PLATFORM_SLEEP_MODES_COUNT RPM_MODE_MAX
+
+#define MAX_RPM_PARAMS 2
+#ifdef LEGACY_STATS
+#define XO_VOTERS 4
+#else
+#define XO_VOTERS (MAX_PLATFORM_STATS - XO_VOTERS_START)
+#endif
+#define VMIN_VOTERS 0
+
+struct stat_pair {
+    enum stats_type stat;
     const char *label;
-    const char **stats_labels;
-    size_t num_stats;
+    const char **parameters;
+    size_t num_parameters;
 };
 
-int extract_rpm_master_stats(uint64_t *list, size_t list_length);
-int extract_rpmh_master_stats(uint64_t *list, size_t list_length);
-int extract_wlan_stats(uint64_t *list, size_t list_length);
-int extract_rpm_system_stats(uint64_t *list, size_t list_length);
-int extract_rpmh_system_stats(uint64_t *list, size_t list_length);
-bool power_helper_is_legacy(void);
+
+void power_init(void);
+void power_hint(power_hint_t hint, void *data);
+void power_set_interactive(int on);
+void set_feature(feature_t feature, int state);
+int extract_platform_stats(uint64_t *list);
+#ifndef NO_WLAN_STATS
+int extract_wlan_stats(uint64_t *list);
+#endif
+int __attribute__ ((weak)) get_number_of_profiles();
 
 #ifdef __cplusplus
 }

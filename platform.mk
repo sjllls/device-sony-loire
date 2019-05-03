@@ -77,7 +77,8 @@ PRODUCT_PACKAGES += \
     
 # Power
 PRODUCT_PACKAGES += \
-    android.hardware.power@1.3-service.sony
+	android.hardware.power@1.1-service-qti \
+	android.hardware.power@1.1
 
 # GFX
 PRODUCT_PACKAGES += \
