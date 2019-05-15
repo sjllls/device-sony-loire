@@ -28,6 +28,8 @@ SOMC_PLATFORM := loire
 
 SONY_ROOT := $(PLATFORM_COMMON_PATH)/rootdir
 
+CM_BUILD := suzu
+
 # Overlay
 DEVICE_PACKAGE_OVERLAYS += \
     $(PLATFORM_COMMON_PATH)/overlay
