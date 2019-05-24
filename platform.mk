@@ -68,6 +68,10 @@ PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.vulkan.version-1_0_3.xml:system/etc/permissions/android.hardware.vulkan.version.xml \
     frameworks/native/data/etc/android.hardware.sensor.barometer.xml:system/etc/permissions/android.hardware.sensor.barometer.xml
 
+# Ubuntu Touch Mir/hybris integration
+PRODUCT_PACKAGES += \
+    libminisf
+
 # QCOM netmgrd support
 PRODUCT_PACKAGES += \
     librmnetctl \
