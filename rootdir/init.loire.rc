@@ -53,6 +53,14 @@ service fingerprintd /system/bin/fingerprintd
     group input
     writepid /dev/cpuset/system-background/tasks
 
+# minimediaservice service
+#service minimediaservice /system/bin/minimediaservice
+#    setenv LD_LIBRARY_PATH /system/lib:/vendor/lib:/odm/lib
+#    class late_start
+#    user system
+#    group system camera audio media
+#    writepid /dev/cpuset/system-background/tasks
+
 on property:bluetooth.isEnabled=true
     write /sys/class/bluetooth/hci0/idle_timeout 7000
 
