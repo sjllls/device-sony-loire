@@ -70,8 +70,7 @@ PRODUCT_COPY_FILES += \
 
 # Ubuntu Touch Mir/hybris integration
 PRODUCT_PACKAGES += \
-    libminisf \
-    minimediaservice
+    libminisf
 
 # QCOM netmgrd support
 PRODUCT_PACKAGES += \
@@ -99,8 +98,7 @@ PRODUCT_PACKAGES += \
 
 # CAMERA
 PRODUCT_PACKAGES += \
-    camera.msm8952 \
-    camera.msm8952_32
+    camera.msm8952
 
 # Keymaster
 PRODUCT_PACKAGES += \
