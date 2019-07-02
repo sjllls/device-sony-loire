@@ -17,11 +17,12 @@ PLATFORM_COMMON_PATH := device/sony/loire
 
 TARGET_LEGACY_KEYMASTER := true
 
-$(call inherit-product, device/sony/common/common.mk)
-$(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
-
 SOMC_PLATFORM := loire
 SOMC_KERNEL_VERSION := 4.9
+KERNEL_PATH := kernel/sony/msm-$(SOMC_KERNEL_VERSION)
+
+$(call inherit-product, device/sony/common/common.mk)
+$(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
 
 SONY_ROOT := $(PLATFORM_COMMON_PATH)/rootdir
 
@@ -53,6 +54,10 @@ PRODUCT_COPY_FILES += \
     $(SONY_ROOT)/vendor/etc/wifi/wpa_supplicant_overlay.conf:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/wpa_supplicant_overlay.conf \
     $(SONY_ROOT)/vendor/etc/wifi/p2p_supplicant_overlay.conf:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/p2p_supplicant_overlay.conf
 
+# NFC Configuration
+PRODUCT_COPY_FILES += \
+    $(SONY_ROOT)/vendor/etc/libnfc-nci.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nci.conf
+
 # Touch IDC
 PRODUCT_COPY_FILES += \
     $(SONY_ROOT)/vendor/usr/idc/clearpad.idc:$(TARGET_COPY_OUT_VENDOR)/usr/idc/clearpad.idc
@@ -77,6 +82,7 @@ PRODUCT_PACKAGES += \
 
 # Audio
 PRODUCT_PACKAGES += \
+    sound_trigger.primary.msm8952 \
     audio.primary.msm8952
 
 # GFX
