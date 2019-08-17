@@ -77,4 +77,7 @@ BOARD_CACHEIMAGE_FILE_SYSTEM_TYPE := ext4
 # Platform witout a vendor partition
 TARGET_COPY_OUT_VENDOR := system/vendor
 
+# Treble
+BOARD_VNDK_VERSION := current
+
 include device/sony/common/CommonConfig.mk
