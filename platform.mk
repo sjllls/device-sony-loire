@@ -26,6 +26,9 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
 
 SONY_ROOT := $(PLATFORM_COMMON_PATH)/rootdir
 
+# Build boot.img, necessary since Q for non-system-as-root devices
+PRODUCT_BUILD_BOOT_IMAGE := true
+
 # Overlay
 DEVICE_PACKAGE_OVERLAYS += \
     $(PLATFORM_COMMON_PATH)/overlay
