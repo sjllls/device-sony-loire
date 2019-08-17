@@ -18,12 +18,15 @@
 #define _BDROID_BUILDCFG_H
 
 #if !defined(OS_GENERIC)
+#undef PROPERTY_VALUE_MAX
 #include <cutils/properties.h>
 #include <string.h>
 
 static inline const char* getBTDefaultName()
 {
-    char device[PROPERTY_VALUE_MAX];
+    // system/bt/osi/include/properties.h
+    // #define PROPERTY_VALUE_MAX 92
+    char device[92];
     property_get("ro.boot.hardware", device, "");
 
     if (!strcmp("suzu", device)) {
