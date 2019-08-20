@@ -54,12 +54,14 @@ service fingerprintd /system/bin/fingerprintd
     writepid /dev/cpuset/system-background/tasks
 
 # minimediaservice service
-#service minimediaservice /system/bin/minimediaservice
-#    setenv LD_LIBRARY_PATH /system/lib:/vendor/lib:/odm/lib
-#    class late_start
-#    user system
-#    group system camera audio media
-#    writepid /dev/cpuset/system-background/tasks
+service minimedia /system/bin/minimediaservice
+    setenv LD_LIBRARY_PATH /system/lib:/vendor/lib:/odm/lib
+    class main
+    user media
+    group audio camera
+    ioprio rt 4
+    setenv LD_PRELOAD /system/lib/libOmxVdec.so
+    setenv MINIMEDIA_SENSORSERVER_DISABLE 1
 
 on property:bluetooth.isEnabled=true
     write /sys/class/bluetooth/hci0/idle_timeout 7000

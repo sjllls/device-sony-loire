@@ -70,7 +70,10 @@ PRODUCT_COPY_FILES += \
 
 # Ubuntu Touch Mir/hybris integration
 PRODUCT_PACKAGES += \
-    libminisf
+    libaudioflingerglue \
+    libminisf \
+    miniafservice \
+    minimediaservice
 
 # QCOM netmgrd support
 PRODUCT_PACKAGES += \
