@@ -68,6 +68,9 @@ BOARD_VENDOR_SEPOLICY_DIRS += $(PLATFORM_COMMON_PATH)/sepolicy_platform
 # Legacy Keymaster
 TARGET_LEGACY_KEYMASTER := true
 
+# Audio
+BOARD_SUPPORTS_SOUND_TRIGGER := true
+
 # Display
 TARGET_USES_GRALLOC1 := true
 
