@@ -81,4 +81,33 @@ BOARD_CACHEIMAGE_FILE_SYSTEM_TYPE := ext4
 # Platform witout a vendor partition
 TARGET_COPY_OUT_VENDOR := system/vendor
 
+# DLKM
+KERNEL_MODULES_INSTALL := dlkm
+KERNEL_MODULES_OUT := out/target/product/$(PRODUCT_DEVICE)/$(KERNEL_MODULES_INSTALL)/lib/modules
+BOARD_VENDOR_KERNEL_MODULES := \
+    $(KERNEL_MODULES_OUT)/audio_apr.ko \
+    $(KERNEL_MODULES_OUT)/audio_q6_notifier.ko \
+    $(KERNEL_MODULES_OUT)/audio_adsp_loader.ko \
+    $(KERNEL_MODULES_OUT)/audio_q6.ko \
+    $(KERNEL_MODULES_OUT)/audio_usf.ko \
+    $(KERNEL_MODULES_OUT)/audio_pinctrl_wcd.ko \
+    $(KERNEL_MODULES_OUT)/audio_swr.ko \
+    $(KERNEL_MODULES_OUT)/audio_wcd_core.ko \
+    $(KERNEL_MODULES_OUT)/audio_swr_ctrl.ko \
+    $(KERNEL_MODULES_OUT)/audio_wsa881x.ko \
+    $(KERNEL_MODULES_OUT)/audio_wsa881x_analog.ko \
+    $(KERNEL_MODULES_OUT)/audio_platform.ko \
+    $(KERNEL_MODULES_OUT)/audio_cpe_lsm.ko \
+    $(KERNEL_MODULES_OUT)/audio_hdmi.ko \
+    $(KERNEL_MODULES_OUT)/audio_stub.ko \
+    $(KERNEL_MODULES_OUT)/audio_wcd9xxx.ko \
+    $(KERNEL_MODULES_OUT)/audio_mbhc.ko \
+    $(KERNEL_MODULES_OUT)/audio_wcd9335.ko \
+    $(KERNEL_MODULES_OUT)/audio_wcd_cpe.ko \
+    $(KERNEL_MODULES_OUT)/audio_digital_cdc.ko \
+    $(KERNEL_MODULES_OUT)/audio_analog_cdc.ko \
+    $(KERNEL_MODULES_OUT)/audio_native.ko \
+    $(KERNEL_MODULES_OUT)/audio_machine_sdm450.ko \
+    $(KERNEL_MODULES_OUT)/audio_machine_ext_sdm450.ko
+
 include device/sony/common/CommonConfig.mk

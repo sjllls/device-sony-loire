@@ -198,3 +198,34 @@ PRODUCT_PROPERTY_OVERRIDES += \
 # setup dm-verity configs.
 PRODUCT_SYSTEM_VERITY_PARTITION := /dev/block/platform/soc/7824900.sdhci/by-name/system
 $(call inherit-product, build/target/product/verity.mk)
+
+# Audio DLKM
+PRODUCT_PACKAGES += \
+    audio_apr.ko \
+    audio_q6_notifier.ko \
+    audio_adsp_loader.ko \
+    audio_q6.ko \
+    audio_usf.ko \
+    audio_pinctrl_wcd.ko \
+    audio_swr.ko \
+    audio_wcd_core.ko \
+    audio_swr_ctrl.ko \
+    audio_wsa881x.ko \
+    audio_wsa881x_analog.ko \
+    audio_platform.ko \
+    audio_cpe_lsm.ko \
+    audio_hdmi.ko \
+    audio_stub.ko \
+    audio_wcd9xxx.ko \
+    audio_mbhc.ko \
+    audio_wcd9335.ko \
+    audio_wcd_cpe.ko \
+    audio_digital_cdc.ko \
+    audio_analog_cdc.ko \
+    audio_native.ko \
+    audio_machine_sdm450.ko \
+    audio_machine_ext_sdm450.ko
+
+# Kernel Modules Config
+PRODUCT_COPY_FILES += \
+    $(SONY_ROOT)/vendor/etc/init.insmod.cfg:$(TARGET_COPY_OUT_VENDOR)/etc/init.insmod.cfg
