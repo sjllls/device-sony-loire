@@ -1,0 +1,9 @@
+on boot
+service vendor.bcmmac /vendor/bin/bcmmac.sh
+    class main
+    user bluetooth
+    group bluetooth net_bt_admin
+    oneshot
+
+on post-fs-data
+    chmod 0770 /data/vendor/bluetooth/bluetooth_bdaddr

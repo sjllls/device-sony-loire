@@ -194,10 +194,6 @@ PRODUCT_PROPERTY_OVERRIDES += \
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.wifi.addr_path=/sys/devices/platform/soc/soc:bcmdhd_wlan/macaddr
 
-# setup dm-verity configs.
-PRODUCT_SYSTEM_VERITY_PARTITION := /dev/block/platform/soc/7824900.sdhci/by-name/system
-$(call inherit-product, build/target/product/verity.mk)
-
 # Audio DLKM
 PRODUCT_PACKAGES += \
     audio_apr.ko \
@@ -228,3 +224,15 @@ PRODUCT_PACKAGES += \
 # Kernel Modules Config
 PRODUCT_COPY_FILES += \
     $(SONY_ROOT)/vendor/etc/init.insmod.cfg:$(TARGET_COPY_OUT_VENDOR)/etc/init.insmod.cfg
+
+# HAL3
+PRODUCT_PROPERTY_OVERRIDES += \
+    persist.camera.HAL3.enabled=1
+
+# BT MAC file
+PRODUCT_COPY_FILES += \
+    $(SONY_ROOT)/vendor/firmware/bluetooth_bdaddr:$(TARGET_COPY_OUT_VENDOR)/firmware/bluetooth_bdaddr
+
+PRODUCT_PACKAGES += \
+    bcmmac.sh
+
